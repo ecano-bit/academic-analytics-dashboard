@@ -3,7 +3,7 @@ import Dashboard from './Dashboard';
 
 function App() {
   return (
-    <div className="App">
+    <div className="min-h-screen bg-academic-gray-50">
       <Dashboard />
     </div>
   );

@@ -1,131 +1,5 @@
 import React from 'react';
-import styled from 'styled-components';
-
-const DebugContainer = styled.div`
-  background: #2c3e50;
-  color: #ecf0f1;
-  padding: 20px;
-  border-radius: 8px;
-  margin-top: 20px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  max-height: 400px;
-  overflow-y: auto;
-`;
-
-const DebugTitle = styled.h4`
-  color: #3498db;
-  margin-bottom: 15px;
-  font-family: Arial, sans-serif;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
-
-const AgentInfoContainer = styled.div`
-  background: rgba(155, 89, 182, 0.1);
-  padding: 15px;
-  border-radius: 6px;
-  margin-bottom: 15px;
-  border-left: 3px solid #9b59b6;
-`;
-
-const ToolBadge = styled.span`
-  background: #9b59b6;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-size: 10px;
-  margin-right: 5px;
-`;
-
-const ReasoningText = styled.div`
-  background: rgba(52, 152, 219, 0.1);
-  padding: 8px;
-  border-radius: 4px;
-  margin-top: 5px;
-  font-style: italic;
-  color: #3498db;
-`;
-
-const DecisionTree = styled.div`
-  background: rgba(46, 204, 113, 0.1);
-  padding: 10px;
-  border-radius: 4px;
-  margin-top: 10px;
-  border-left: 2px solid #2ecc71;
-`;
-
-const StepContainer = styled.div`
-  margin-bottom: 15px;
-  padding: 10px;
-  background: rgba(52, 152, 219, 0.1);
-  border-left: 3px solid #3498db;
-  border-radius: 4px;
-`;
-
-const StepHeader = styled.div`
-  color: #3498db;
-  font-weight: bold;
-  margin-bottom: 5px;
-`;
-
-const StepDetails = styled.div`
-  color: #bdc3c7;
-  line-height: 1.4;
-`;
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
-  margin-bottom: 15px;
-`;
-
-const StatCard = styled.div`
-  background: rgba(46, 204, 113, 0.1);
-  padding: 10px;
-  border-radius: 4px;
-  text-align: center;
-`;
-
-const StatValue = styled.div`
-  color: #2ecc71;
-  font-size: 18px;
-  font-weight: bold;
-`;
-
-const StatLabel = styled.div`
-  color: #95a5a6;
-  font-size: 10px;
-  margin-top: 2px;
-`;
-
-const PerformanceIndicator = styled.div<{fast: boolean}>`
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: bold;
-  background: ${props => props.fast ? '#27ae60' : '#f39c12'};
-  color: white;
-  margin-left: 10px;
-`;
-
-const SimilarityBadge = styled.div<{score: number}>`
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: bold;
-  background: ${props => 
-    props.score === 1.0 ? '#27ae60' : 
-    props.score > 0.9 ? '#2ecc71' : 
-    props.score > 0.8 ? '#f39c12' : '#e74c3c'
-  };
-  color: white;
-  margin-left: 10px;
-`;
+import oli from './images/oli.png';
 
 interface DebugInfo {
   original_question: string;
@@ -193,118 +67,134 @@ const DebugPanel: React.FC<Props> = ({ result }) => {
   }
 
   return (
-    <DebugContainer>
-      <DebugTitle>
+    <div className="bg-academic-gray-800 text-gray-100 p-5 rounded-lg mt-5 font-mono text-xs max-h-96 overflow-y-auto">
+      <h4 className="text-academic-blue-400 mb-4 font-sans flex items-center gap-2.5">
         🔍 Debug Panel - Sistema de Base de Conocimiento
-        <PerformanceIndicator fast={isPerformanceFast}>
+        <span className={`inline-block px-2 py-0.5 rounded-xl text-xs font-bold text-white ml-2.5 ${
+          isPerformanceFast ? 'bg-green-600' : 'bg-yellow-500'
+        }`}>
           {processing_time_ms}ms
-        </PerformanceIndicator>
+        </span>
         {from_knowledge_base && (
-          <SimilarityBadge score={similarity_score}>
+          <span className={`inline-block px-2 py-0.5 rounded-xl text-xs font-bold text-white ml-2.5 ${
+            similarity_score === 1.0 ? 'bg-green-600' : 
+            similarity_score > 0.9 ? 'bg-green-500' : 
+            similarity_score > 0.8 ? 'bg-yellow-500' : 'bg-red-500'
+          }`}>
             {similarity_score === 1.0 ? 'EXACTA' : `${(similarity_score * 100).toFixed(1)}%`}
-          </SimilarityBadge>
+          </span>
         )}
-      </DebugTitle>
+      </h4>
 
-      <StatsGrid>
-        <StatCard>
-          <StatValue>{debug_info.knowledge_base_stats.total_queries}</StatValue>
-          <StatLabel>Consultas en Base</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{debug_info.knowledge_base_stats.total_usage}</StatValue>
-          <StatLabel>Usos Totales</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{usage_count}</StatValue>
-          <StatLabel>Usos Esta Consulta</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{debug_info.knowledge_base_stats.avg_usage}</StatValue>
-          <StatLabel>Promedio Usos</StatLabel>
-        </StatCard>
-      </StatsGrid>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-4">
+        <div className="bg-green-500/10 p-2.5 rounded text-center">
+          <div className="text-green-400 text-lg font-bold">{debug_info.knowledge_base_stats.total_queries}</div>
+          <div className="text-gray-400 text-xs mt-0.5">Consultas en Base</div>
+        </div>
+        <div className="bg-green-500/10 p-2.5 rounded text-center">
+          <div className="text-green-400 text-lg font-bold">{debug_info.knowledge_base_stats.total_usage}</div>
+          <div className="text-gray-400 text-xs mt-0.5">Usos Totales</div>
+        </div>
+        <div className="bg-green-500/10 p-2.5 rounded text-center">
+          <div className="text-green-400 text-lg font-bold">{usage_count}</div>
+          <div className="text-gray-400 text-xs mt-0.5">Usos Esta Consulta</div>
+        </div>
+        <div className="bg-green-500/10 p-2.5 rounded text-center">
+          <div className="text-green-400 text-lg font-bold">{debug_info.knowledge_base_stats.avg_usage}</div>
+          <div className="text-gray-400 text-xs mt-0.5">Promedio Usos</div>
+        </div>
+      </div>
 
-      <StepContainer>
-        <StepHeader>📝 Normalización de Pregunta</StepHeader>
-        <StepDetails>
+      <div className="mb-4 p-2.5 bg-academic-blue-500/10 border-l-4 border-academic-blue-400 rounded">
+        <div className="text-academic-blue-400 font-bold mb-1">📝 Normalización de Pregunta</div>
+        <div className="text-gray-300 leading-relaxed">
           <strong>Original:</strong> "{debug_info.original_question}"<br/>
           <strong>Normalizada:</strong> "{debug_info.normalized_question}"
-        </StepDetails>
-      </StepContainer>
+        </div>
+      </div>
 
       {debug_info.agent_info && (
-        <AgentInfoContainer>
-          <StepHeader>
-            🤖 {debug_info.agent_info.agent_type}
-            <span style={{color: '#95a5a6', fontSize: '10px', marginLeft: '10px'}}>
+        <div className="bg-purple-500/10 p-4 rounded-md mb-4 border-l-4 border-purple-500">
+          <div className="text-academic-blue-400 font-bold mb-1 flex items-center gap-2">
+            <img src={oli} alt="Oli" className="w-5 h-5" />
+            {debug_info.agent_info.agent_type}
+            <span className="text-gray-400 text-xs ml-2.5">
               Estrategia: {debug_info.agent_info.optimization_strategy}
             </span>
-          </StepHeader>
-          <StepDetails>
+          </div>
+          <div className="text-gray-300 leading-relaxed">
             <strong>Tools Disponibles:</strong><br/>
             {debug_info.agent_info.tools_available.map((tool, idx) => (
-              <ToolBadge key={idx}>{tool}</ToolBadge>
+              <span key={idx} className="bg-purple-600 text-white px-1.5 py-0.5 rounded-full text-xs mr-1">
+                {tool}
+              </span>
             ))}
-          </StepDetails>
-        </AgentInfoContainer>
+          </div>
+        </div>
       )}
 
       {debug_info.processing_steps.map((step, index) => (
-        <StepContainer key={index}>
-          <StepHeader>
+        <div key={index} className="mb-4 p-2.5 bg-academic-blue-500/10 border-l-4 border-academic-blue-400 rounded">
+          <div className="text-academic-blue-400 font-bold mb-1">
             {step.step}. {step.action}
-            {step.tool_used && <ToolBadge>{step.tool_used}</ToolBadge>}
-            <span style={{color: '#95a5a6', fontSize: '10px', marginLeft: '10px'}}>
+            {step.tool_used && (
+              <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded-full text-xs mr-1">
+                {step.tool_used}
+              </span>
+            )}
+            <span className="text-gray-400 text-xs ml-2.5">
               {formatTime(step.timestamp)}
             </span>
-          </StepHeader>
-          <StepDetails>
+          </div>
+          <div className="text-gray-300 leading-relaxed">
             {step.details}
             {step.agent_reasoning && (
-              <ReasoningText>
+              <div className="bg-academic-blue-500/10 p-2 rounded mt-1 italic text-academic-blue-400">
                 🧠 <strong>Razonamiento del Agente:</strong> {step.agent_reasoning}
-              </ReasoningText>
+              </div>
             )}
-          </StepDetails>
-        </StepContainer>
+          </div>
+        </div>
       ))}
 
       {debug_info.agent_info?.decision_tree && debug_info.agent_info.decision_tree.length > 0 && (
-        <StepContainer>
-          <StepHeader>🌳 Árbol de Decisiones del Agente</StepHeader>
+        <div className="mb-4 p-2.5 bg-academic-blue-500/10 border-l-4 border-academic-blue-400 rounded">
+          <div className="text-academic-blue-400 font-bold mb-1">🌳 Árbol de Decisiones del Agente</div>
           {debug_info.agent_info.decision_tree.map((decision, idx) => (
-            <DecisionTree key={idx}>
+            <div key={idx} className="bg-green-500/10 p-2.5 rounded mt-2.5 border-l-2 border-green-500">
               <strong>Decisión:</strong> {decision.decision}<br/>
               <strong>Razonamiento:</strong> {decision.reasoning}<br/>
-              <strong>Tool Seleccionada:</strong> <ToolBadge>{decision.tool_selected}</ToolBadge>
+              <strong>Tool Seleccionada:</strong> 
+              <span className="bg-purple-600 text-white px-1.5 py-0.5 rounded-full text-xs ml-1">
+                {decision.tool_selected}
+              </span>
               {decision.optimization && <><br/><strong>Optimización:</strong> {decision.optimization}</>}
               {decision.performance && <><br/><strong>Performance:</strong> {decision.performance}</>}
               {decision.fallback_strategy && <><br/><strong>Estrategia Fallback:</strong> {decision.fallback_strategy}</>}
               {decision.intelligence && <><br/><strong>Inteligencia:</strong> {decision.intelligence}</>}
               {decision.learning && <><br/><strong>Aprendizaje:</strong> {decision.learning}</>}
-            </DecisionTree>
+            </div>
           ))}
-        </StepContainer>
+        </div>
       )}
 
-      <StepContainer>
-        <StepHeader>
+      <div className="mb-4 p-2.5 bg-academic-blue-500/10 border-l-4 border-academic-blue-400 rounded">
+        <div className="text-academic-blue-400 font-bold mb-1">
           📊 Resultado Final
           {from_knowledge_base ? (
-            <span style={{color: '#2ecc71', marginLeft: '10px'}}>✅ OPTIMIZADO</span>
+            <span className="text-green-400 ml-2.5">✅ OPTIMIZADO</span>
           ) : (
-            <span style={{color: '#f39c12', marginLeft: '10px'}}>🆕 NUEVA</span>
+            <span className="text-yellow-500 ml-2.5">🆕 NUEVA</span>
           )}
-        </StepHeader>
-        <StepDetails>
+        </div>
+        <div className="text-gray-300 leading-relaxed">
           {from_knowledge_base 
             ? `Consulta reutilizada de la base de conocimiento. Ahorro de tiempo y recursos.`
             : `Nueva consulta creada y guardada para futuras referencias.`
           }
-        </StepDetails>
-      </StepContainer>
-    </DebugContainer>
+        </div>
+      </div>
+    </div>
   );
 };
 
