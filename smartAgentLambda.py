@@ -16,6 +16,7 @@ def lambda_handler(event, context):
     cache_table = dynamodb.Table('AcademicAnalyticsCache')
     knowledge_base = dynamodb.Table('QueryKnowledgeBase')
     cost_tracker = dynamodb.Table('CostTracker')
+    feedback_table = dynamodb.Table('QueryFeedback')
     database = 'academic_analytics_db'
     table = 'vision_360_alumno'
     s3_bucket = 'tk-migracion-sqlserver'
@@ -54,6 +55,15 @@ def lambda_handler(event, context):
                 'cost_summary': get_cost_summary(cost_tracker),
                 'timestamp': datetime.now().isoformat()
             }
+        elif query_type == 'feedback':
+            feedback_data = json.loads(user_input) if user_input else {}
+            result = process_feedback(feedback_table, knowledge_base, feedback_data)
+        elif query_type == 'training':
+            result = {
+                'type': 'training',
+                'training_data': get_training_insights(feedback_table),
+                'timestamp': datetime.now().isoformat()
+            }
         else:
             raise ValueError(f"Tipo de consulta no soportado: {query_type}")
         
@@ -67,6 +77,11 @@ def lambda_handler(event, context):
             'total_session_cost': get_total_costs(cost_tracker),
             'cost_breakdown': get_cost_breakdown(cost_tracker)
         }
+        
+        # Agregar ID único para feedback si es una consulta
+        if query_type == 'query':
+            result['query_id'] = generate_query_id(user_input, result.get('sql_query', ''))
+            result['feedback_enabled'] = True
         
         # Guardar en caché
         save_to_cache(cache_table, cache_key, result, query_type)
@@ -905,6 +920,151 @@ def get_cost_summary(cost_tracker):
         'cost_breakdown': breakdown,
         'estimated_monthly_cost': total_cost * 30 if total_requests > 0 else 0
     }
+
+def generate_query_id(user_input, sql_query):
+    """Genera ID único para la consulta"""
+    import uuid
+    content = f"{user_input}:{sql_query}:{datetime.now().isoformat()}"
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, content))[:12]
+
+def process_feedback(feedback_table, knowledge_base, feedback_data):
+    """Procesa feedback del usuario sobre una consulta"""
+    try:
+        query_id = feedback_data.get('query_id')
+        is_correct = feedback_data.get('is_correct', False)
+        user_comment = feedback_data.get('comment', '')
+        original_question = feedback_data.get('original_question', '')
+        sql_query = feedback_data.get('sql_query', '')
+        expected_result = feedback_data.get('expected_result', '')
+        
+        # Guardar feedback
+        feedback_table.put_item(
+            Item={
+                'query_id': query_id,
+                'created_at': datetime.now().isoformat(),
+                'is_correct': is_correct,
+                'original_question': original_question,
+                'sql_query': sql_query,
+                'user_comment': user_comment,
+                'expected_result': expected_result,
+                'feedback_type': 'user_validation'
+            }
+        )
+        
+        # Si es incorrecto, actualizar knowledge base con penalización
+        if not is_correct:
+            update_knowledge_base_quality(knowledge_base, original_question, False)
+        else:
+            update_knowledge_base_quality(knowledge_base, original_question, True)
+        
+        return {
+            'type': 'feedback',
+            'status': 'success',
+            'message': 'Feedback registrado correctamente',
+            'query_id': query_id,
+            'will_improve': not is_correct,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Error procesando feedback: {e}")
+        return {
+            'type': 'feedback',
+            'status': 'error',
+            'message': f'Error al procesar feedback: {str(e)}',
+            'timestamp': datetime.now().isoformat()
+        }
+
+def update_knowledge_base_quality(knowledge_base, original_question, is_positive):
+    """Actualiza la calidad de las consultas en la base de conocimiento"""
+    try:
+        normalized_question = normalize_question(original_question)
+        
+        # Buscar la consulta en la base de conocimiento
+        response = knowledge_base.get_item(Key={'query_pattern': normalized_question})
+        
+        if 'Item' in response:
+            # Actualizar score de calidad
+            current_score = float(response['Item'].get('quality_score', 0.5))
+            feedback_count = int(response['Item'].get('feedback_count', 0))
+            
+            # Algoritmo simple de promedio ponderado
+            if is_positive:
+                new_score = (current_score * feedback_count + 1.0) / (feedback_count + 1)
+            else:
+                new_score = (current_score * feedback_count + 0.0) / (feedback_count + 1)
+            
+            knowledge_base.update_item(
+                Key={'query_pattern': normalized_question},
+                UpdateExpression='SET quality_score = :score, feedback_count = :count, last_feedback = :timestamp',
+                ExpressionAttributeValues={
+                    ':score': Decimal(str(new_score)),
+                    ':count': feedback_count + 1,
+                    ':timestamp': datetime.now().isoformat()
+                }
+            )
+            
+    except Exception as e:
+        print(f"Error actualizando calidad: {e}")
+
+def get_training_insights(feedback_table):
+    """Obtiene insights de entrenamiento basados en feedback"""
+    try:
+        # Escanear feedback reciente
+        response = feedback_table.scan()
+        items = response.get('Items', [])
+        
+        if not items:
+            return {
+                'total_feedback': 0,
+                'accuracy_rate': 0,
+                'common_issues': [],
+                'improvement_suggestions': []
+            }
+        
+        # Calcular métricas
+        total_feedback = len(items)
+        correct_feedback = len([item for item in items if item.get('is_correct', False)])
+        accuracy_rate = (correct_feedback / total_feedback) * 100 if total_feedback > 0 else 0
+        
+        # Identificar problemas comunes
+        incorrect_items = [item for item in items if not item.get('is_correct', False)]
+        common_issues = []
+        
+        for item in incorrect_items[:5]:  # Top 5 problemas
+            common_issues.append({
+                'question': item.get('original_question', ''),
+                'sql': item.get('sql_query', '')[:100] + '...',
+                'comment': item.get('user_comment', ''),
+                'expected': item.get('expected_result', '')
+            })
+        
+        # Sugerencias de mejora
+        improvement_suggestions = []
+        if accuracy_rate < 70:
+            improvement_suggestions.append("Considerar usar un modelo más avanzado para generación de SQL")
+        if len(incorrect_items) > 5:
+            improvement_suggestions.append("Implementar validación de SQL antes de ejecutar")
+        if accuracy_rate < 50:
+            improvement_suggestions.append("Revisar y mejorar los patrones de generación de consultas")
+        
+        return {
+            'total_feedback': total_feedback,
+            'correct_queries': correct_feedback,
+            'incorrect_queries': len(incorrect_items),
+            'accuracy_rate': round(accuracy_rate, 2),
+            'common_issues': common_issues,
+            'improvement_suggestions': improvement_suggestions,
+            'last_updated': datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Error obteniendo insights: {e}")
+        return {
+            'total_feedback': 0,
+            'accuracy_rate': 0,
+            'error': str(e)
+        }
 
 def create_response(data, status_code=200):
     """Crea respuesta HTTP estándar"""

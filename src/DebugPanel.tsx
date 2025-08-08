@@ -115,6 +115,47 @@ const DebugPanel: React.FC<Props> = ({ result }) => {
         </div>
       </div>
 
+      {cost_info && (
+        <div className="bg-orange-500/10 p-4 rounded-md mb-4 border-l-4 border-orange-500">
+          <div className="text-academic-blue-400 font-bold mb-1 flex items-center gap-2">
+            💰 Información de Costos en Tiempo Real
+            <span className="text-gray-400 text-xs ml-2.5">
+              Precios reales de AWS
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mt-2.5">
+            <div className="bg-red-500/10 p-2 rounded text-center">
+              <div className="text-red-400 text-sm font-bold">${(cost_info.operation_cost_usd * 1000000).toFixed(2)}µ</div>
+              <div className="text-gray-400 text-xs mt-0.5">Esta Consulta</div>
+            </div>
+            <div className="bg-red-500/10 p-2 rounded text-center">
+              <div className="text-red-400 text-sm font-bold">${(cost_info.total_session_cost * 1000).toFixed(3)}m</div>
+              <div className="text-gray-400 text-xs mt-0.5">Sesión Total</div>
+            </div>
+            <div className="bg-red-500/10 p-2 rounded text-center">
+              <div className="text-red-400 text-sm font-bold">{Object.keys(cost_info.cost_breakdown).length}</div>
+              <div className="text-gray-400 text-xs mt-0.5">Servicios Usados</div>
+            </div>
+            <div className="bg-red-500/10 p-2 rounded text-center">
+              <div className="text-red-400 text-sm font-bold">
+                {from_knowledge_base ? '~60%' : '0%'}
+              </div>
+              <div className="text-gray-400 text-xs mt-0.5">Ahorro por Caché</div>
+            </div>
+          </div>
+          <div className="text-gray-300 leading-relaxed mt-2.5">
+            <strong>Desglose:</strong> 
+            {Object.entries(cost_info.cost_breakdown).map(([service, data]) => (
+              <span key={service} className="mr-4">
+                {service}: ${(data.total_cost * 1000).toFixed(3)}m
+              </span>
+            ))}
+            <br/>
+            <strong>Nota:</strong> µ = microdólares (millonésimas), m = milidólares (milésimas)
+          </div>
+        </div>
+      )}
+
       <div className="mb-4 p-2.5 bg-academic-blue-500/10 border-l-4 border-academic-blue-400 rounded">
         <div className="text-academic-blue-400 font-bold mb-1">📝 Normalización de Pregunta</div>
         <div className="text-gray-300 leading-relaxed">

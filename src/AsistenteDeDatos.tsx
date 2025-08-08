@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import ResultTable from './ResultTable';
 import DebugPanel from './DebugPanel';
+import FeedbackPanel from './FeedbackPanel';
 import oliImage from './images/oli.png';
 
 const SMART_API_URL = 'https://mqw248j7g2.execute-api.us-east-2.amazonaws.com/prod/smart-agent';
@@ -18,6 +19,8 @@ interface QueryResult {
   similarity_score?: number;
   processing_time_ms?: number;
   debug_info?: any;
+  query_id?: string;
+  feedback_enabled?: boolean;
 }
 
 const AsistenteDeDatos: React.FC = () => {
@@ -25,6 +28,7 @@ const AsistenteDeDatos: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [customQuestion, setCustomQuestion] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const predefinedQuestions = [
     '¿Cuáles son los estudiantes de alto riesgo?',
@@ -52,6 +56,7 @@ const AsistenteDeDatos: React.FC = () => {
     setLoading(true);
     setError(null);
     setResult(null);
+    setFeedbackMessage(null);
 
     try {
       // Intentar con smart-agent primero
@@ -107,6 +112,45 @@ const AsistenteDeDatos: React.FC = () => {
             <div className="bg-white rounded-lg rounded-tl-none p-4 shadow-sm border border-academic-gray-200 flex-1">
               <ResultTable result={result} />
               {result.debug_info && <DebugPanel result={result} />}
+              {result.feedback_enabled && result.query_id && (
+                <FeedbackPanel
+                  queryId={result.query_id}
+                  originalQuestion={result.question}
+                  sqlQuery={result.sql_query}
+                  onFeedbackSubmitted={(success) => {
+                    if (success) {
+                      setFeedbackMessage('✅ Feedback enviado correctamente. ¡Gracias por ayudar a mejorar el sistema!');
+                    } else {
+                      setFeedbackMessage('❌ Error al enviar feedback. Inténtalo de nuevo.');
+                    }
+                    setTimeout(() => setFeedbackMessage(null), 5000);
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Feedback Message */}
+        {feedbackMessage && (
+          <div className="flex items-start space-x-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              feedbackMessage.includes('✅') ? 'bg-green-500' : 'bg-red-500'
+            }`}>
+              <span className="text-white text-sm">
+                {feedbackMessage.includes('✅') ? '✅' : '❌'}
+              </span>
+            </div>
+            <div className={`rounded-lg rounded-tl-none p-4 border max-w-xs ${
+              feedbackMessage.includes('✅') 
+                ? 'bg-green-50 border-green-200' 
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <p className={`text-sm ${
+                feedbackMessage.includes('✅') ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {feedbackMessage}
+              </p>
             </div>
           </div>
         )}
