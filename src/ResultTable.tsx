@@ -1,85 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
-
-const Container = styled.div`
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #ecf0f1;
-`;
-
-const QueryInfo = styled.div`
-  background: #f8f9fa;
-  padding: 15px;
-  border-radius: 6px;
-  margin-bottom: 20px;
-`;
-
-const QueryText = styled.div`
-  font-family: 'Courier New', monospace;
-  background: #2c3e50;
-  color: #ecf0f1;
-  padding: 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  margin-top: 10px;
-  overflow-x: auto;
-`;
-
-const ResultsHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-`;
-
-const ResultCount = styled.span`
-  color: #7f8c8d;
-  font-size: 14px;
-`;
-
-const TableContainer = styled.div`
-  overflow-x: auto;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-`;
-
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 600px;
-`;
-
-const TableHeader = styled.th`
-  background: #34495e;
-  color: white;
-  padding: 12px;
-  text-align: left;
-  font-weight: 600;
-  border-bottom: 2px solid #2c3e50;
-`;
-
-const TableRow = styled.tr`
-  &:nth-child(even) {
-    background: #f8f9fa;
-  }
-  
-  &:hover {
-    background: #e8f4f8;
-  }
-`;
-
-const TableCell = styled.td`
-  padding: 10px 12px;
-  border-bottom: 1px solid #ddd;
-  font-size: 14px;
-`;
-
-const NoResults = styled.div`
-  text-align: center;
-  color: #7f8c8d;
-  padding: 40px;
-  font-style: italic;
-`;
 
 interface QueryResult {
   question: string;
@@ -112,48 +31,58 @@ const ResultTable: React.FC<Props> = ({ result }) => {
   };
 
   return (
-    <Container>
-      <QueryInfo>
-        <strong>Pregunta:</strong> {result.question}
-        <QueryText>{result.sql_query}</QueryText>
-      </QueryInfo>
+    <div className="border-t border-academic-gray-200 pt-6">
+      {/* Query Information */}
+      <div className="bg-academic-gray-50 p-4 rounded-lg mb-6">
+        <div className="mb-3">
+          <span className="font-semibold text-academic-gray-900">Pregunta:</span>
+          <span className="ml-2 text-academic-gray-700">{result.question}</span>
+        </div>
+        <div className="bg-academic-gray-800 text-academic-gray-100 p-3 rounded font-mono text-xs overflow-x-auto">
+          {result.sql_query}
+        </div>
+      </div>
 
-      <ResultsHeader>
-        <h4>Resultados</h4>
-        <ResultCount>
+      {/* Results Header */}
+      <div className="flex justify-between items-center mb-4">
+        <h4 className="text-lg font-semibold text-academic-gray-900">Resultados</h4>
+        <span className="text-sm text-academic-gray-500">
           {result.total_rows} registro{result.total_rows !== 1 ? 's' : ''} encontrado{result.total_rows !== 1 ? 's' : ''}
-        </ResultCount>
-      </ResultsHeader>
+        </span>
+      </div>
 
+      {/* Results Table */}
       {result.data.length === 0 ? (
-        <NoResults>No se encontraron resultados para esta consulta.</NoResults>
+        <div className="text-center py-12 text-academic-gray-500 italic">
+          No se encontraron resultados para esta consulta.
+        </div>
       ) : (
-        <TableContainer>
-          <Table>
+        <div className="overflow-x-auto border border-academic-gray-200 rounded-lg">
+          <table className="w-full border-collapse min-w-full">
             <thead>
-              <tr>
+              <tr className="bg-academic-blue-600">
                 {result.columns.map((column, index) => (
-                  <TableHeader key={index}>
+                  <th key={index} className="text-white px-4 py-3 text-left font-semibold text-sm">
                     {formatColumnName(column)}
-                  </TableHeader>
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {result.data.map((row, rowIndex) => (
-                <TableRow key={rowIndex}>
+                <tr key={rowIndex} className={`${rowIndex % 2 === 0 ? 'bg-white' : 'bg-academic-gray-50'} hover:bg-academic-blue-50 transition-colors duration-150`}>
                   {result.columns.map((column, colIndex) => (
-                    <TableCell key={colIndex}>
+                    <td key={colIndex} className="px-4 py-3 border-b border-academic-gray-200 text-sm text-academic-gray-700">
                       {formatValue(row[column])}
-                    </TableCell>
+                    </td>
                   ))}
-                </TableRow>
+                </tr>
               ))}
             </tbody>
-          </Table>
-        </TableContainer>
+          </table>
+        </div>
       )}
-    </Container>
+    </div>
   );
 };
 
