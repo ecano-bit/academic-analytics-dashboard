@@ -56,6 +56,40 @@ const DecisionTree = styled.div`
   border-left: 2px solid #2ecc71;
 `;
 
+const CostContainer = styled.div`
+  background: rgba(230, 126, 34, 0.1);
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  border-left: 3px solid #e67e22;
+`;
+
+const CostGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+`;
+
+const CostCard = styled.div`
+  background: rgba(231, 76, 60, 0.1);
+  padding: 8px;
+  border-radius: 4px;
+  text-align: center;
+`;
+
+const CostValue = styled.div`
+  color: #e74c3c;
+  font-size: 14px;
+  font-weight: bold;
+`;
+
+const CostLabel = styled.div`
+  color: #95a5a6;
+  font-size: 9px;
+  margin-top: 2px;
+`;
+
 const StepContainer = styled.div`
   margin-bottom: 15px;
   padding: 10px;
@@ -167,6 +201,15 @@ interface QueryResult {
   similarity_score?: number;
   processing_time_ms?: number;
   debug_info?: DebugInfo;
+  cost_info?: {
+    operation_cost_usd: number;
+    total_session_cost: number;
+    cost_breakdown: Record<string, {
+      total_cost: number;
+      request_count: number;
+      avg_cost_per_request: number;
+    }>;
+  };
 }
 
 interface Props {
@@ -179,7 +222,8 @@ const DebugPanel: React.FC<Props> = ({ result }) => {
     processing_time_ms = 0, 
     from_knowledge_base = false, 
     usage_count = 0, 
-    similarity_score = 0 
+    similarity_score = 0,
+    cost_info
   } = result;
 
   const formatTime = (timestamp: string) => {
@@ -224,6 +268,47 @@ const DebugPanel: React.FC<Props> = ({ result }) => {
           <StatLabel>Promedio Usos</StatLabel>
         </StatCard>
       </StatsGrid>
+
+      {cost_info && (
+        <CostContainer>
+          <StepHeader>
+            💰 Información de Costos en Tiempo Real
+            <span style={{color: '#95a5a6', fontSize: '10px', marginLeft: '10px'}}>
+              Precios reales de AWS
+            </span>
+          </StepHeader>
+          <CostGrid>
+            <CostCard>
+              <CostValue>${(cost_info.operation_cost_usd * 1000000).toFixed(2)}µ</CostValue>
+              <CostLabel>Esta Consulta</CostLabel>
+            </CostCard>
+            <CostCard>
+              <CostValue>${(cost_info.total_session_cost * 1000).toFixed(3)}m</CostValue>
+              <CostLabel>Sesión Total</CostLabel>
+            </CostCard>
+            <CostCard>
+              <CostValue>{Object.keys(cost_info.cost_breakdown).length}</CostValue>
+              <CostLabel>Servicios Usados</CostLabel>
+            </CostCard>
+            <CostCard>
+              <CostValue>
+                {from_knowledge_base ? '~60%' : '0%'}
+              </CostValue>
+              <CostLabel>Ahorro por Caché</CostLabel>
+            </CostCard>
+          </CostGrid>
+          <StepDetails style={{marginTop: '10px'}}>
+            <strong>Desglose:</strong> 
+            {Object.entries(cost_info.cost_breakdown).map(([service, data]) => (
+              <span key={service} style={{marginRight: '15px'}}>
+                {service}: ${(data.total_cost * 1000).toFixed(3)}m
+              </span>
+            ))}
+            <br/>
+            <strong>Nota:</strong> µ = microdólares (millonésimas), m = milidólares (milésimas)
+          </StepDetails>
+        </CostContainer>
+      )}
 
       <StepContainer>
         <StepHeader>📝 Normalización de Pregunta</StepHeader>

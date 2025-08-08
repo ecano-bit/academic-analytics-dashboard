@@ -15,6 +15,7 @@ def lambda_handler(event, context):
     # Configuración
     cache_table = dynamodb.Table('AcademicAnalyticsCache')
     knowledge_base = dynamodb.Table('QueryKnowledgeBase')
+    cost_tracker = dynamodb.Table('CostTracker')
     database = 'academic_analytics_db'
     table = 'vision_360_alumno'
     s3_bucket = 'tk-migracion-sqlserver'
@@ -47,8 +48,25 @@ def lambda_handler(event, context):
                 'popular_queries': get_popular_queries(knowledge_base, int(user_input) if user_input.isdigit() else 10),
                 'timestamp': datetime.now().isoformat()
             }
+        elif query_type == 'costs':
+            result = {
+                'type': 'costs',
+                'cost_summary': get_cost_summary(cost_tracker),
+                'timestamp': datetime.now().isoformat()
+            }
         else:
             raise ValueError(f"Tipo de consulta no soportado: {query_type}")
+        
+        # Calcular y registrar costos de esta operación
+        operation_cost = calculate_operation_cost(query_type, result)
+        update_cost_tracker(cost_tracker, query_type, operation_cost)
+        
+        # Agregar información de costos al resultado
+        result['cost_info'] = {
+            'operation_cost_usd': operation_cost,
+            'total_session_cost': get_total_costs(cost_tracker),
+            'cost_breakdown': get_cost_breakdown(cost_tracker)
+        }
         
         # Guardar en caché
         save_to_cache(cache_table, cache_key, result, query_type)
@@ -776,6 +794,117 @@ def decimal_to_int(obj):
     elif isinstance(obj, list):
         return [decimal_to_int(item) for item in obj]
     return obj
+
+def calculate_operation_cost(query_type, result):
+    """Calcula el costo de la operación actual en USD"""
+    cost = 0.0
+    
+    # Costos base por servicio (precios reales de AWS)
+    costs = {
+        'lambda_invocation': 0.0000002,  # $0.20 por 1M requests
+        'athena_per_tb': 5.0,            # $5.00 por TB escaneado
+        'dynamodb_read': 0.00000025,     # $0.25 por 1M RCU
+        'dynamodb_write': 0.00000125,    # $1.25 por 1M WCU
+        'bedrock_input_1k': 0.003,       # $3.00 por 1M tokens input
+        'bedrock_output_1k': 0.015,      # $15.00 por 1M tokens output
+        'api_gateway': 0.0000035         # $3.50 por 1M requests
+    }
+    
+    # Costo base de Lambda + API Gateway
+    cost += costs['lambda_invocation'] + costs['api_gateway']
+    
+    # Costo de DynamoDB (estimado)
+    cost += costs['dynamodb_read'] * 2  # Lecturas de cache y knowledge base
+    cost += costs['dynamodb_write'] * 1  # Escritura de tracking
+    
+    if query_type == 'query':
+        # Costo de Athena (estimado 1MB de datos escaneados)
+        cost += costs['athena_per_tb'] * 0.000001  # 1MB = 0.000001 TB
+        
+        # Si es de knowledge base, no hay costo de Athena adicional
+        if result.get('from_knowledge_base'):
+            cost -= costs['athena_per_tb'] * 0.000001
+    
+    elif query_type == 'dashboard':
+        # Dashboard usa Athena + posible Bedrock
+        cost += costs['athena_per_tb'] * 0.000002  # 2MB estimado
+        cost += costs['bedrock_input_1k'] * 0.15   # ~150 tokens input
+        cost += costs['bedrock_output_1k'] * 0.05  # ~50 tokens output
+    
+    elif query_type == 'analysis':
+        # Análisis avanzado usa más Athena
+        cost += costs['athena_per_tb'] * 0.000005  # 5MB estimado
+    
+    return round(cost, 6)  # 6 decimales para precisión
+
+def update_cost_tracker(cost_tracker, service_type, cost):
+    """Actualiza el tracking de costos"""
+    try:
+        cost_tracker.update_item(
+            Key={'service_type': service_type},
+            UpdateExpression='ADD total_cost :cost, request_count :count SET last_updated = :timestamp',
+            ExpressionAttributeValues={
+                ':cost': Decimal(str(cost)),
+                ':count': 1,
+                ':timestamp': datetime.now().isoformat()
+            }
+        )
+        
+        # También actualizar total general
+        cost_tracker.update_item(
+            Key={'service_type': 'TOTAL'},
+            UpdateExpression='ADD total_cost :cost, request_count :count SET last_updated = :timestamp',
+            ExpressionAttributeValues={
+                ':cost': Decimal(str(cost)),
+                ':count': 1,
+                ':timestamp': datetime.now().isoformat()
+            }
+        )
+    except Exception as e:
+        print(f"Error actualizando costos: {e}")
+
+def get_total_costs(cost_tracker):
+    """Obtiene el costo total acumulado"""
+    try:
+        response = cost_tracker.get_item(Key={'service_type': 'TOTAL'})
+        if 'Item' in response:
+            return float(response['Item']['total_cost'])
+    except Exception as e:
+        print(f"Error obteniendo costos totales: {e}")
+    return 0.0
+
+def get_cost_breakdown(cost_tracker):
+    """Obtiene desglose de costos por servicio"""
+    try:
+        response = cost_tracker.scan()
+        breakdown = {}
+        for item in response.get('Items', []):
+            if item['service_type'] != 'TOTAL':
+                breakdown[item['service_type']] = {
+                    'total_cost': float(item.get('total_cost', 0)),
+                    'request_count': int(item.get('request_count', 0)),
+                    'avg_cost_per_request': float(item.get('total_cost', 0)) / max(int(item.get('request_count', 1)), 1)
+                }
+        return breakdown
+    except Exception as e:
+        print(f"Error obteniendo desglose de costos: {e}")
+        return {}
+
+def get_cost_summary(cost_tracker):
+    """Obtiene resumen completo de costos"""
+    total_cost = get_total_costs(cost_tracker)
+    breakdown = get_cost_breakdown(cost_tracker)
+    
+    total_requests = sum(service['request_count'] for service in breakdown.values())
+    avg_cost_per_request = total_cost / max(total_requests, 1)
+    
+    return {
+        'total_cost_usd': total_cost,
+        'total_requests': total_requests,
+        'avg_cost_per_request': avg_cost_per_request,
+        'cost_breakdown': breakdown,
+        'estimated_monthly_cost': total_cost * 30 if total_requests > 0 else 0
+    }
 
 def create_response(data, status_code=200):
     """Crea respuesta HTTP estándar"""
