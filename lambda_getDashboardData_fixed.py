@@ -114,7 +114,7 @@ def lambda_handler(event, context):
                 'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
-                'error': f'Error interno del servidor: {str(e)}'
+                'error': f'Error interno del servidor.: {str(e)}'
             })
         }
 
