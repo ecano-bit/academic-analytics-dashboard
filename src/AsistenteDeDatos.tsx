@@ -5,15 +5,36 @@ import DebugPanel from './DebugPanel';
 import FeedbackPanel from './FeedbackPanel';
 import oliImage from './images/oli.png';
 
-const SMART_API_URL = 'https://mqw248j7g2.execute-api.us-east-2.amazonaws.com/prod/smart-agent';
+const SMART_API_URL = 'https://mqw248j7g2.execute-api.us-east-2.amazonaws.com/prod/smartAgentLambda_v2';
 const FALLBACK_API_URL = 'https://mqw248j7g2.execute-api.us-east-2.amazonaws.com/prod/query';
 
 interface QueryResult {
   question: string;
   sql_query: string;
+  results: any[];
+  debug?: {
+    start_time: string;
+    end_time: string;
+    total_duration: number;
+    model_used: string;
+    estimated_cost: {
+      input_tokens: number;
+      output_tokens: number;
+      input_cost_usd: number;
+      output_cost_usd: number;
+      total_cost_usd: number;
+    };
+    steps: Array<{
+      step: string;
+      duration?: number;
+      timestamp?: number;
+    }>;
+  };
+  // Required for compatibility with ResultTable
   columns: string[];
   data: any[];
   total_rows: number;
+  // Optional backward compatibility
   from_knowledge_base?: boolean;
   usage_count?: number;
   similarity_score?: number;
@@ -59,13 +80,25 @@ const AsistenteDeDatos: React.FC = () => {
     setFeedbackMessage(null);
 
     try {
-      // Intentar con smart-agent primero
+      // Intentar con smartAgentLambda_v2 primero
       const response = await axios.post(SMART_API_URL, { 
-        type: 'query',
-        input: question 
+        question: question 
       });
-      console.log('Smart Agent Response:', response.data);
-      setResult(response.data);
+      console.log('Smart Agent v2 Response:', response.data);
+      
+      // Transformar respuesta para compatibilidad
+      const transformedResult: QueryResult = {
+        question: response.data.question,
+        sql_query: response.data.sql_query,
+        results: response.data.results,
+        debug: response.data.debug,
+        // Para compatibilidad con ResultTable
+        data: response.data.results,
+        columns: response.data.results.length > 0 ? Object.keys(response.data.results[0]) : [],
+        total_rows: response.data.results.length
+      };
+      
+      setResult(transformedResult);
     } catch (smartErr: any) {
       console.warn('Smart agent failed, trying fallback:', smartErr);
       
@@ -111,7 +144,7 @@ const AsistenteDeDatos: React.FC = () => {
             </div>
             <div className="bg-white rounded-lg rounded-tl-none p-4 shadow-sm border border-academic-gray-200 flex-1">
               <ResultTable result={result} />
-              {result.debug_info && <DebugPanel result={result} />}
+              {(result.debug || result.debug_info) && <DebugPanel result={result} />}
               {result.feedback_enabled && result.query_id && (
                 <FeedbackPanel
                   queryId={result.query_id}

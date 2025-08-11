@@ -13,14 +13,16 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
   sqlQuery,
   onFeedbackSubmitted
 }) => {
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+
   const [comment, setComment] = useState('');
   const [expectedResult, setExpectedResult] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
+  const [score, setScore] = useState<number | null>(null);
+
   const submitFeedback = async () => {
-    if (isCorrect === null) return;
+    if (score === null) return;
 
     setIsSubmitting(true);
     
@@ -32,19 +34,17 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
         },
         body: JSON.stringify({
           type: 'feedback',
-          input: JSON.stringify({
-            query_id: queryId,
-            is_correct: isCorrect,
-            comment: comment,
-            original_question: originalQuestion,
-            sql_query: sqlQuery,
-            expected_result: expectedResult
-          })
+          query_id: queryId,
+          score: score,
+          comment: comment,
+          suggested_sql: expectedResult,
+          original_question: originalQuestion,
+          original_sql: sqlQuery
         })
       });
 
       const result = await response.json();
-      onFeedbackSubmitted(result.status === 'success');
+      onFeedbackSubmitted(result.success || false);
       
     } catch (error) {
       console.error('Error enviando feedback:', error);
@@ -76,59 +76,64 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({
         </div>
       )}
 
-      <div className="flex gap-3 mb-3">
-        <button
-          onClick={() => setIsCorrect(true)}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            isCorrect === true
-              ? 'bg-green-500 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-green-100'
-          }`}
-        >
-          ✅ Correcto
-        </button>
-        <button
-          onClick={() => setIsCorrect(false)}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            isCorrect === false
-              ? 'bg-red-500 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-red-100'
-          }`}
-        >
-          ❌ Incorrecto
-        </button>
+      <div className="space-y-3">
+        <div className="text-sm font-medium text-gray-700 mb-2">Califica la respuesta (1-5 estrellas):</div>
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map((rating) => (
+            <button
+              key={rating}
+              onClick={() => setScore(rating)}
+              className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+                score === rating
+                  ? 'bg-yellow-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-yellow-100'
+              }`}
+            >
+              {rating}⭐
+            </button>
+          ))}
+        </div>
+        {score && (
+          <div className="text-sm text-gray-600">
+            {score === 1 && '😞 Muy malo'}
+            {score === 2 && '😕 Malo'}
+            {score === 3 && '😐 Regular'}
+            {score === 4 && '😊 Bueno'}
+            {score === 5 && '😍 Excelente'}
+          </div>
+        )}
       </div>
 
-      {isCorrect === false && (
-        <div className="space-y-3">
+      {score && score < 4 && (
+        <div className="space-y-3 mt-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              ¿Qué resultado esperabas?
+              SQL sugerido para mejorar (opcional)
             </label>
-            <input
-              type="text"
+            <textarea
               value={expectedResult}
               onChange={(e) => setExpectedResult(e.target.value)}
-              placeholder="Ej: Estudiantes con promedio > 8.0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              placeholder="SELECT ... FROM ... WHERE ..."
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent font-mono text-sm"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Comentarios adicionales (opcional)
+              ¿Qué se puede mejorar? (opcional)
             </label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Describe qué estuvo mal o cómo mejorar..."
-              rows={3}
+              rows={2}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
             />
           </div>
         </div>
       )}
 
-      {isCorrect !== null && (
+      {score !== null && (
         <div className="mt-4 flex justify-end">
           <button
             onClick={submitFeedback}
