@@ -158,8 +158,8 @@ const DebugPanel: React.FC<Props> = ({ result }) => {
               <div className="text-gray-400 text-xs mt-0.5">Tokens Salida</div>
             </div>
             <div className="bg-green-500/10 p-2.5 rounded text-center">
-              <div className="text-green-400 text-lg font-bold">${(debug.estimated_cost.total_cost_usd * 1000).toFixed(3)}m</div>
-              <div className="text-gray-400 text-xs mt-0.5">Costo Total</div>
+              <div className="text-green-400 text-lg font-bold">${debug.estimated_cost.total_cost_usd.toFixed(6)}</div>
+              <div className="text-gray-400 text-xs mt-0.5">Costo Total USD</div>
             </div>
             <div className="bg-purple-500/10 p-2.5 rounded text-center">
               <div className="text-purple-400 text-lg font-bold">{debug.steps.length}</div>
@@ -172,9 +172,9 @@ const DebugPanel: React.FC<Props> = ({ result }) => {
               💰 Información de Costos - Claude 3.5 Sonnet
             </div>
             <div className="text-gray-300 leading-relaxed">
-              <strong>Entrada:</strong> {debug.estimated_cost.input_tokens} tokens × $3.00/1M = ${(debug.estimated_cost.input_cost_usd * 1000).toFixed(3)}m<br/>
-              <strong>Salida:</strong> {debug.estimated_cost.output_tokens} tokens × $15.00/1M = ${(debug.estimated_cost.output_cost_usd * 1000).toFixed(3)}m<br/>
-              <strong>Total:</strong> ${(debug.estimated_cost.total_cost_usd * 1000).toFixed(3)} milidólares
+              <strong>Entrada:</strong> {debug.estimated_cost.input_tokens} tokens × $3.00/1M = ${debug.estimated_cost.input_cost_usd.toFixed(6)}<br/>
+              <strong>Salida:</strong> {debug.estimated_cost.output_tokens} tokens × $15.00/1M = ${debug.estimated_cost.output_cost_usd.toFixed(6)}<br/>
+              <strong>Total:</strong> ${debug.estimated_cost.total_cost_usd.toFixed(6)}
             </div>
           </div>
           
@@ -406,22 +406,7 @@ const DebugPanel: React.FC<Props> = ({ result }) => {
         </div>
       )}
 
-      <div className="mb-4 p-2.5 bg-academic-blue-500/10 border-l-4 border-academic-blue-400 rounded">
-        <div className="text-academic-blue-400 font-bold mb-1">
-          📊 Resultado Final
-          {from_knowledge_base ? (
-            <span className="text-green-400 ml-2.5">✅ OPTIMIZADO</span>
-          ) : (
-            <span className="text-yellow-500 ml-2.5">🆕 NUEVA</span>
-          )}
-        </div>
-        <div className="text-gray-300 leading-relaxed">
-          {from_knowledge_base 
-            ? `Consulta reutilizada de la base de conocimiento. Ahorro de tiempo y recursos.`
-            : `Nueva consulta creada y guardada para futuras referencias.`
-          }
-        </div>
-      </div>
+
     </div>
   );
 };
