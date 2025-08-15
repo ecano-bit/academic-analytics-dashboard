@@ -80,11 +80,23 @@ const AsistenteDeDatos: React.FC = () => {
     setFeedbackMessage(null);
 
     try {
-      // Intentar con smartAgentLambda_v2 primero
+      // Configurar timeout más largo
       const response = await axios.post(SMART_API_URL, { 
         question: question 
+      }, {
+        timeout: 85000, // 85 segundos
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
+      
       console.log('Smart Agent v2 Response:', response.data);
+      
+      // Manejar errores de validación
+      if (response.data.error) {
+        setError(`${response.data.message || response.data.error}\n\n${response.data.suggestions ? 'Sugerencias:\n• ' + response.data.suggestions.join('\n• ') : ''}`);
+        return;
+      }
       
       // Transformar respuesta para compatibilidad
       const transformedResult: QueryResult = {
@@ -100,20 +112,25 @@ const AsistenteDeDatos: React.FC = () => {
       
       setResult(transformedResult);
     } catch (smartErr: any) {
-      console.warn('Smart agent failed, trying fallback:', smartErr);
+      console.warn('Smart agent failed:', smartErr);
       
-      try {
-        // Fallback al endpoint original
-        const fallbackResponse = await axios.post(FALLBACK_API_URL, { question });
-        console.log('Fallback Response:', fallbackResponse.data);
-        setResult(fallbackResponse.data);
-      } catch (fallbackErr: any) {
-        console.error('Both endpoints failed:', { smartErr, fallbackErr });
-        const errorMessage = fallbackErr.response?.data?.error || 
-                            fallbackErr.response?.data?.message || 
-                            fallbackErr.message || 
-                            'Error al procesar la consulta';
-        setError(errorMessage);
+      // Manejar diferentes tipos de errores
+      if (smartErr.code === 'ECONNABORTED' || smartErr.message.includes('timeout')) {
+        setError('La consulta está tardando más de lo esperado. Por favor, intenta con una pregunta más específica.');
+      } else if (smartErr.response?.status === 504) {
+        setError('Timeout del servidor. La consulta es muy compleja. Intenta con una pregunta más simple.');
+      } else if (smartErr.response?.status === 429) {
+        const errorData = smartErr.response.data;
+        setError(`🕰️ ${errorData?.message || 'Sistema temporalmente ocupado'}\n\n${errorData?.suggestions ? 'Sugerencias:\n• ' + errorData.suggestions.join('\n• ') : 'Intenta de nuevo en 10-15 segundos'}`);
+      } else if (smartErr.response?.status === 400) {
+        const errorData = smartErr.response.data;
+        if (errorData?.message && errorData?.suggestions) {
+          setError(`${errorData.message}\n\nSugerencias:\n• ${errorData.suggestions.join('\n• ')}`);
+        } else {
+          setError(errorData?.error || 'Pregunta no válida');
+        }
+      } else {
+        setError('Error de conexión. Por favor, verifica tu conexión a internet e intenta nuevamente.');
       }
     } finally {
       setLoading(false);
